@@ -1,0 +1,265 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ==========================================================================
+   GLOBAL DESIGN TOKENS — IDDQ AI OPTIMIZATION PLATFORM
+   Cinematic, Intelligent, Precision Semiconductor Engineering Visual Language
+   ========================================================================== */
+
+:root {
+  /* DARK MODE (Default Primary Environment) */
+  --bg-canvas: #02060A;
+  --bg-surface: #0B141C;
+  --bg-card: #101B24;
+  --bg-card-hover: #14212B;
+  
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-glow: rgba(45, 212, 191, 0.3);
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #94A3B8;
+  --text-subtle: #64748B;
+
+  /* Accent Colorway */
+  --color-primary: #2DD4BF;      /* Precision Cyan-Teal */
+  --color-secondary: #38BDF8;    /* Silicon Light Blue */
+  --color-accent: #60A5FA;       /* Deep Vector Blue */
+  --color-cyan: #2DD4BF;
+  --color-emerald: #22C55E;     /* Confirmed Pass / Retained */
+  --color-amber: #F0A63A;       /* Process Shift / Anomaly */
+  --color-ruby: #F05252;        /* True Physical Defect / Overkill */
+  --color-blue: #38BDF8;
+  --color-purple: #8B5CF6;      /* Model Predicted */
+
+  /* Theme-aware status channels (R G B) for Tailwind alpha */
+  --status-pass: 34 197 94;
+  --status-warn: 240 166 58;
+  --status-fail: 240 82 82;
+  --status-info: 45 212 191;
+  --status-accent: 56 189 248;
+  --status-model: 139 92 246;
+  --on-accent: 2 6 10;
+
+  /* Layered Depth & Elevation */
+  --card-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --card-shadow-hover: 0 12px 36px -4px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(45, 212, 191, 0.4);
+  --glow-primary: 0 0 24px -4px rgba(45, 212, 191, 0.25);
+}
+
+html.light {
+  /* TRUE ENTERPRISE LIGHT MODE (Clean, Technical, High-Contrast) */
+  --bg-canvas: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F1F5F9;
+
+  --border-subtle: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --border-glow: rgba(2, 132, 199, 0.35);
+
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-muted: #475569;
+  --text-subtle: #64748B;
+
+  /* Refined High-Contrast Accents */
+  --color-primary: #0F766E;
+  --color-secondary: #0369A1;
+  --color-accent: #1D4ED8;
+  --color-cyan: #0F766E;
+  --color-emerald: #15803D;
+  --color-amber: #B45309;
+  --color-ruby: #B91C1C;
+  --color-blue: #0369A1;
+  --color-purple: #6D28D9;
+
+  --status-pass: 21 128 61;
+  --status-warn: 180 83 9;
+  --status-fail: 185 28 28;
+  --status-info: 15 118 110;
+  --status-accent: 3 105 161;
+  --status-model: 109 40 217;
+  --on-accent: 255 255 255;
+
+  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(226, 232, 240, 0.9);
+  --card-shadow-hover: 0 12px 28px -6px rgba(0, 0, 0, 0.09), 0 0 0 1px rgba(2, 132, 199, 0.4);
+  --glow-primary: 0 0 20px -3px rgba(2, 132, 199, 0.15);
+}
+
+/* ==========================================================================
+   BASE & TYPOGRAPHY FOUNDATIONS
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.25s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  .type-page {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .type-section {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+  }
+
+  .type-body {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+
+  .type-secondary {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+  }
+
+  .type-caption {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+
+  .type-label {
+    font-family: var(--font-sans), sans-serif;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .type-numeric {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgb(var(--status-info));
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   3D PERSPECTIVE & CARDS ELEVATION
+   ========================================================================== */
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+/* Dynamic Interactive Cards with Depth */
+.interactive-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, box-shadow;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
+  border-color: var(--border-strong);
+}
+
+/* Glass Surface with Subtle Blur */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--card-shadow);
+}
+
+/* High-Tech Technical Monospace Details */
+.tech-glow-text {
+  text-shadow: 0 0 12px rgba(45, 212, 191, 0.35);
+}
+
+/* Semiconductor Wafer Die Cell Interaction */
+.wafer-die-cell {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              stroke-width 0.15s ease,
+              fill 0.15s ease;
+  cursor: pointer;
+}
+
+.wafer-die-cell:hover {
+  transform: scale(1.3);
+  stroke: var(--color-cyan);
+  stroke-width: 1.5px;
+  z-index: 20;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-subtle);
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

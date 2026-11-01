@@ -1,0 +1,677 @@
+--- PAGE 1 ---
+AI-Optimized IDDQ Test Time Reduction
+Technical document
+17 October 2026
+Contents
+1. Executive summary
+2
+2. Background: IDDQ testing
+2
+2.1 Principle . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+2
+2.2 Defects IDDQ detects well . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+2
+2.3 Why IDDQ is harder in advanced nodes . . . . . . . . . . . . . . . . . . . . . . . . . .
+2
+2.4 Derived IDDQ metrics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+3. Test time breakdown and cost model
+3
+3.1 Contributors
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+3.2 Savings model
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+3
+4. AI/ML optimization techniques
+4
+4.1 IDDQ vector selection and reduction . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+4.2 Settling-time prediction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+4
+4.3 Adaptive per-die IDDQ
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+4.4 ML-based outlier screening
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+4.5 Spatial and wafer-level prediction
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+4.6 Test-flow ordering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+5
+5. System architecture and data pipeline
+5
+5.1 Components . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+5.2 Integration notes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+6
+6. Model development
+7
+6.1 Data requirements . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+6.2 Feature engineering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+6.3 Algorithm choice . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+6.4 Training and validation protocol
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+7
+6.5 Validation metrics . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+8
+7. Quality, risk and compliance
+8
+7.1 Risk register
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+8
+7.2 Guard-banding rules . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+8
+7.3 Automotive and high-reliability products
+. . . . . . . . . . . . . . . . . . . . . . . . .
+9
+7.4 Monitoring in production . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+8. Implementation roadmap and KPIs
+9
+8.1 Gate criteria
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+9
+8.2 KPIs
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+9. Glossary and further reading
+10
+9.1 Glossary . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+9.2 Further reading
+. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+10
+1
+
+--- PAGE 2 ---
+AI-Optimized IDDQ Test Time Reduction
+1. Executive summary
+Machine learning can cut IDDQ test time by removing redundant vectors, shortening settling
+waits and skipping low-risk die, while keeping or improving defect screening. IDDQ remains
+one of the slowest tests per vector because each quiescent-current measurement must wait
+for the supply to settle. In advanced nodes, high and variable background leakage also makes
+fixed pass/fail limits weak.
+This document describes six complementary optimization levers:
+1. Vector reduction — keep only the IDDQ states that add unique defect detection.
+2. Settling-time prediction — estimate the settled current from early transient samples.
+3. Adaptive per-die test — run a reduced IDDQ set on die predicted to be low-risk.
+4. ML-based outlier screening — replace fixed limits with leakage-normalized, multivari-
+ate screens.
+5. Spatial prediction — model wafer leakage maps so only deviations need full measure-
+ment.
+6. Flow ordering — place high-fallout vectors early so failing die stop sooner.
+The main risks are test escapes (higher DPPM), model drift across lots and process changes,
+and customer or automotive acceptance.
+Every lever therefore ships with guard-bands, a
+full-test audit sample and downstream escape tracking.
+All time and savings figures in this document are illustrative planning values. They must be
+replaced with measured data from your product and tester before any decision.
+2. Background: IDDQ testing
+2.1 Principle
+A fault-free static CMOS circuit draws only leakage current from VDD when no inputs are
+switching. Many physical defects create a conducting path from VDD to ground in a given
+logic state, which raises the quiescent supply current (IDDQ) by orders of magnitude above
+leakage in older nodes. IDDQ testing applies a set of vectors that put the circuit into chosen
+quiescent states, waits for transients to decay, then measures supply current per state.
+2.2 Defects IDDQ detects well
+• Bridging faults (resistive shorts between nets), including those that do not cause a logic
+error.
+• Gate-oxide shorts and pinholes.
+• Transistor stuck-on and leaky junction defects.
+• Floating gates and some open defects that leave a node at an intermediate voltage.
+• Latent reliability defects that may escape functional and scan tests but fail early in the
+field.
+2.3 Why IDDQ is harder in advanced nodes
+• Background leakage is high. Subthreshold, gate and junction leakage grow as dimen-
+sions shrink, so the defect current is a small fraction of total current.
+• Leakage varies widely. Die-to-die and wafer-to-wafer process variation spreads normal
+IDDQ over a wide range, so a single fixed limit either fails good die or passes defective
+ones.
+• Strong temperature and voltage dependence. Leakage changes sharply with tem-
+perature and VDD, so test conditions must be tightly controlled.
+• Many power domains. Modern SoCs have multiple rails and power-gated islands, mul-
+tiplying measurements.
+2
+
+--- PAGE 3 ---
+AI-Optimized IDDQ Test Time Reduction
+2.4 Derived IDDQ metrics
+To separate defects from normal leakage, production flows use relative metrics rather than
+raw current:
+• Delta-IDDQ — the difference between IDDQ of consecutive or sorted vectors. A defect
+active only in some states creates a step.
+• Current ratio — max IDDQ divided by min IDDQ for a die. Normal die have a stable
+ratio regardless of absolute leakage.
+• Nearest-neighbor residual (NNR) — the die’s IDDQ minus an estimate from surround-
+ing die on the wafer, removing spatial leakage trends.
+• Multi-condition IDDQ — IDDQ at several voltages or temperatures, where defects scale
+differently from leakage.
+3. Test time breakdown and cost model
+IDDQ time per die is dominated by settling wait multiplied by the number of vectors and rails.
+The total can be modeled as:
+𝑇𝐼𝐷𝐷𝑄=
+𝑅
+∑
+𝑟=1
+𝑁𝑣
+∑
+𝑣=1
+(𝑡𝑎𝑝𝑝𝑙𝑦+ 𝑡𝑠𝑒𝑡𝑡𝑙𝑒,𝑟,𝑣+ 𝑡𝑚𝑒𝑎𝑠,𝑟) + 𝑡𝑟𝑎𝑛𝑔𝑒+ 𝑡𝑟𝑒𝑡𝑒𝑠𝑡
+where 𝑅is the number of measured rails, 𝑁𝑣the number of IDDQ vectors, 𝑡𝑎𝑝𝑝𝑙𝑦the scan
+load or pattern application time, 𝑡𝑠𝑒𝑡𝑡𝑙𝑒the wait for current to stabilize, 𝑡𝑚𝑒𝑎𝑠the measure-
+ment integration time, 𝑡𝑟𝑎𝑛𝑔𝑒the overhead of measurement-unit range changes, and 𝑡𝑟𝑒𝑡𝑒𝑠𝑡
+the expected time spent re-measuring marginal die.
+3.1 Contributors
+Contributor
+Typical driver
+AI lever that addresses it
+Settling time per
+vector
+Decoupling capacitance, tester
+PMU response, power-gating
+wake-up
+Settling-time prediction (4.2)
+Number of vectors
+Fault coverage targets, legacy
+test programs
+Vector reduction (4.1),
+adaptive test (4.3)
+Number of rails and
+conditions
+Power domains, multi-VDD or
+multi-temperature screens
+Adaptive test (4.3), feature
+ranking (6)
+Retests of marginal die
+Fixed limits close to the leakage
+distribution
+Outlier screening (4.4)
+Average time to first
+fail
+Vector order
+Flow ordering (4.6)
+Die measured at full
+depth
+Every die tested the same way
+Spatial prediction (4.5),
+adaptive test (4.3)
+3.2 Savings model
+Expected saving per die combines the levers multiplicatively on the parts each one touches:
+𝑇𝑛𝑒𝑤= 𝑅⋅𝑁′
+𝑣⋅(𝑡𝑎𝑝𝑝𝑙𝑦+ 𝛼𝑡𝑠𝑒𝑡𝑡𝑙𝑒+ 𝑡𝑚𝑒𝑎𝑠) ⋅(𝑝𝑓𝑢𝑙𝑙+ (1 −𝑝𝑓𝑢𝑙𝑙) 𝛽)
+where 𝑁′
+𝑣is the reduced vector count, 𝛼the fraction of settling time still waited after predic-
+tion (0 to 1), 𝑝𝑓𝑢𝑙𝑙the fraction of die that still receive the full set, and 𝛽the relative length of
+the reduced set for low-risk die.
+3
+
+--- PAGE 4 ---
+AI-Optimized IDDQ Test Time Reduction
+The cost value of the saving is:
+Δ𝐶= (𝑇𝐼𝐷𝐷𝑄−𝑇𝑛𝑒𝑤) × tester cost per second × annual volume −𝐶𝑒𝑠𝑐𝑎𝑝𝑒
+𝐶𝑒𝑠𝑐𝑎𝑝𝑒is the expected cost of additional test escapes (returns, field failures, customer penal-
+ties). It must be estimated conservatively and drives the guard-band choices in Section 7.
+Open question: current per-die IDDQ time, vector count, rail count and tester cost per second
+for the target product are needed to turn this model into a business case.
+4. AI/ML optimization techniques
+The six levers below are independent and can be deployed in stages; vector reduction and
+settling prediction are offline or low-risk and usually come first.
+4.1 IDDQ vector selection and reduction
+Goal: the smallest vector set that keeps defect detection.
+Inputs
+• Fault-simulation coverage per vector for bridging, pseudo-stuck-at and leakage fault mod-
+els.
+• Historical per-vector IDDQ for passing and failing die across many lots.
+• Unique-fail attribution: which die failed only on a given vector.
+Methods
+• Greedy set cover — repeatedly pick the vector that adds the most uncovered faults or
+historical fails. Fast and explainable baseline.
+• Genetic algorithms or simulated annealing — search vector subsets with a fitness function
+of coverage minus a time penalty.
+• Reinforcement learning — an agent adds or removes vectors, rewarded for retained cov-
+erage and reduced time. Useful when vectors differ in settling time or rail count.
+• Correlation clustering — cluster vectors whose IDDQ readings are highly correlated
+across die; keep one representative per cluster.
+Output: a ranked vector list and a coverage-versus-count curve, from which the team picks
+a knee point with margin.
+4.2 Settling-time prediction
+Goal: stop waiting before full settling by predicting the final current.
+Approach
+1. Capture several fast samples of supply current during the early transient after each vec-
+tor.
+2. Fit a model that maps the early samples to the fully settled value measured in character-
+ization.
+3. In production, accept the prediction when its confidence interval is narrow and far from
+the limit; otherwise wait for full settling.
+Model options
+• Physics-informed fit: sum of one or two decaying exponentials plus a constant, solved for
+the constant.
+• Gradient-boosted trees or a small neural network on sample values, slopes, vector ID,
+rail and temperature.
+• Quantile regression or conformal prediction to produce calibrated confidence bounds.
+Constraints: requires tester hardware that can sample the transient quickly, and character-
+ization data with full settling for training.
+4
+
+--- PAGE 5 ---
+AI-Optimized IDDQ Test Time Reduction
+4.3 Adaptive per-die IDDQ
+Goal: run the full IDDQ set only where it is likely to matter.
+Inputs available before IDDQ
+• Parametric tests: leakage at other conditions, Vmin, Fmax, ring-oscillator frequencies,
+process monitor readings.
+• Wafer position (radius, edge distance, reticle position) and neighbor results.
+• Lot and wafer context: equipment history, inline metrology if available.
+Method
+• A classifier or anomaly score estimates each die’s risk of an IDDQ fail.
+• Die below a risk threshold run a reduced vector set; die above it, or with missing inputs,
+run the full set.
+• A fixed random fraction of die always run the full set as an audit sample.
+Infrastructure: real-time adaptive test hooks on the tester or test-cell controller that can
+read upstream results and switch flows within the die’s test time.
+4.4 ML-based outlier screening
+Goal: catch more true defects with fewer measurements by screening against what normal
+looks like for that die.
+Methods
+• Statistical baselines: delta-IDDQ, current ratio and NNR (Section 2.4).
+• Multivariate distance: Mahalanobis distance across all vectors, rails and conditions, us-
+ing a robust covariance estimate.
+• Regression residuals:
+predict expected IDDQ from leakage-correlated parametrics;
+screen on the residual.
+• Unsupervised anomaly detection: isolation forest, one-class SVM or autoencoder recon-
+struction error on IDDQ signatures.
+• Gaussian process or spatial models: expected IDDQ from wafer position, screening the
+residual.
+Benefit to test time: better separation lets the program drop redundant conditions and
+reduces marginal retests, because fewer die land near a fixed limit.
+4.5 Spatial and wafer-level prediction
+Goal: reduce the number of die that need full-depth measurement.
+• Measure the full IDDQ set on a sample of die per wafer.
+• Reconstruct the wafer leakage map using Gaussian process regression or compressed-
+sensing (virtual probe) methods.
+• Measure the remaining die with a short set and compare against their predicted value;
+any deviation triggers the full set.
+4.6 Test-flow ordering
+Goal: lower average time per die by failing defective die sooner.
+• Rank vectors by historical fail probability per unit time.
+• Place the highest-yield-loss vectors first, subject to dependencies.
+• Combine with stop-on-first-fail where datalogging requirements allow.
+5. System architecture and data pipeline
+The system splits into an offline loop that learns from full-test data and an online loop that
+decides each die’s flow within its test time.
+5
+
+--- PAGE 6 ---
+AI-Optimized IDDQ Test Time Reduction
+Models trained offline set each die's IDDQ flow at test time
+Upstream parametrics
+Vmin, Fmax, leakage, die XY
+Downstream outcomes
+Final test, burn-in, returns
+ATE IDDQ data
+Per-vector current, transients
+Data lake and feature store
+Joined by die ID, normalized per wafer
+Offline training
+Vector, settle, risk models
+Model registry
+Versioned, approved, rollback
+Test-cell inference
+Risk score, settle prediction
+Monitoring
+Escapes, overkill, drift
+Flow decision on ATE
+Full, reduced or audit flow
+retrain on drift
+results logged
+Figure 1: System architecture: data, training, deployment and monitoring
+Every die’s measured results return to the data lake, so the audit sample and downstream
+outcomes keep retraining and monitoring current.
+5.1 Components
+Component
+Responsibility
+Latency need
+Data lake and feature
+store
+Join ATE, parametric and outcome data by die
+ID; compute features
+Hours (batch)
+Offline training
+Fit vector-selection, settling and risk models;
+tune thresholds
+Days
+Model registry
+Store approved model versions, thresholds
+and test-program links
+n/a
+Test-cell inference
+Score each die and predict settled current on
+the tester or cell controller
+Milliseconds
+per die
+Flow decision
+Choose full, reduced or audit flow; log the
+decision and model version
+Milliseconds
+Monitoring
+Track escapes, overkill, drift and time saved;
+trigger fallback
+Near real time
+5.2 Integration notes
+• Inference must fit inside existing test time; lightweight tree models or lookup tables are
+preferred at the edge.
+• Upstream data for adaptive decisions must be available when the die reaches IDDQ (same
+insertion, or fed forward from wafer sort).
+• The test program needs a flow-switch hook and must log the decision per die for trace-
+ability.
+• Data formats such as STDF should carry die ID, model version and flow chosen.
+6
+
+--- PAGE 7 ---
+AI-Optimized IDDQ Test Time Reduction
+6. Model development
+Models are trained offline on full-test data and judged first on escapes (missed defective die),
+then on time saved.
+6.1 Data requirements
+• Full IDDQ data for every vector, rail and condition, without stop-on-fail, over many lots
+and wafers.
+• Settling transients sampled at high rate for a characterization subset (for 4.2).
+• Upstream parametric results and die coordinates linked by unique die ID (ECID or
+lot/wafer/x/y).
+• Downstream outcomes linked to the same die: final test, burn-in, system-level test and
+customer returns. These are the labels that define a true defect.
+• Tester, site, probe card and temperature metadata, to detect equipment effects.
+6.2 Feature engineering
+Feature group
+Examples
+Raw IDDQ
+Per-vector, per-rail current; min, max, median per die
+Relative IDDQ
+Delta-IDDQ steps, max/min ratio, sorted-vector curve shape
+Spatial
+Radius, edge distance, reticle position, NNR, neighbor fail counts
+Process proxies
+Ring-oscillator frequency, leakage monitors, Vmin, Fmax
+Condition response
+IDDQ slope versus VDD or temperature
+Transient (4.2 only)
+Early sample values, slopes, fitted time constants
+Context
+Tester, site, lot, wafer, test time of day
+Normalize leakage-sensitive features per wafer or per lot so models learn deviations rather
+than process shifts.
+6.3 Algorithm choice
+Task
+Recommended starting point
+Reason
+Vector selection
+Greedy set cover, then GA
+refinement
+Explainable, fast, easy to audit
+Settling prediction
+Exponential fit plus quantile
+gradient boosting
+Physics prior with calibrated
+bounds
+Per-die risk
+Gradient-boosted trees (XGBoost
+or LightGBM)
+Strong on tabular data, feature
+importance available
+Outlier screening
+Robust Mahalanobis, isolation
+forest
+Works with few labeled defects
+Spatial maps
+Gaussian process regression
+Uncertainty estimates per die
+Defective die are rare, so class imbalance must be handled with resampling, class weights or
+anomaly-detection framing.
+6.4 Training and validation protocol
+1. Split by lot and by time, never by random die, so validation reflects future production.
+2. Hold out the most recent lots as a final test set.
+7
+
+--- PAGE 8 ---
+AI-Optimized IDDQ Test Time Reduction
+3. Tune thresholds for zero or near-zero escapes on the validation set, then report time
+saved at that threshold.
+4. Test on lots from different fab conditions, testers and temperatures to check robustness.
+5. Run in shadow mode in production: the model predicts but the full test still runs, so
+escapes can be counted directly.
+6.5 Validation metrics
+Metric
+Definition
+Target direction
+Escape rate
+Defective die the reduced flow would
+pass, per million
+As low as baseline or lower
+Overkill
+Good die the new screen would fail
+No increase over baseline
+Recall at threshold
+Share of known IDDQ fails caught
+Close to 100%
+Test time per die
+Mean and 95th percentile seconds
+Lower
+Prediction error
+(4.2)
+Predicted vs settled IDDQ, absolute and
+relative
+Within measurement
+repeatability
+Calibration
+Observed vs predicted fail rate per risk
+bin
+Diagonal
+Drift indicators
+Feature distribution shift per lot
+(e.g. PSI)
+Below alert limit
+7. Quality, risk and compliance
+No test-time reduction is released unless the escape rate stays at or below the current flow’s,
+proven in shadow mode and audited continuously in production.
+7.1 Risk register
+Risk
+Effect
+Mitigation
+Test escapes
+Higher DPPM, field
+failures, returns
+Zero-escape threshold tuning, audit
+sample, downstream escape tracking
+Model drift
+Predictions degrade after
+process, mask or
+equipment change
+Drift monitors per lot, automatic
+fallback to full flow, scheduled
+retraining
+Missing or bad
+upstream data
+Wrong risk score for a die
+Missing data always triggers the full
+flow
+Tester or site effects
+One site biases readings
+Site-level normalization, site in
+features, per-site monitoring
+Reliability defects
+with small IDDQ
+signature
+Latent fails escape
+reduced screen
+Keep reliability-critical vectors and
+conditions fixed; correlate with burn-in
+data
+Black-box rejection
+by customers
+Program not approved
+Explainable models, documented rules,
+feature importance reports
+Overkill
+Yield loss from aggressive
+outlier screens
+Track overkill as a release metric;
+review rejected die
+7.2 Guard-banding rules
+• A prediction is used only when its confidence bound sits clear of the limit by a set margin.
+• Die with any missing input, unusual context or new equipment run the full flow.
+8
+
+--- PAGE 9 ---
+AI-Optimized IDDQ Test Time Reduction
+• A fixed audit fraction of die always runs the full flow, chosen randomly so it cannot be
+gamed by the model.
+• Any lot that trips a drift alert reverts to the full flow until reviewed.
+7.3 Automotive and high-reliability products
+Automotive products qualified under AEC-Q100 and used in ISO 26262 systems typically have
+strict DPPM targets and change-control requirements. For these products:
+• Treat any test reduction as a formal process change requiring customer notification or
+approval.
+• Prefer outlier screening improvements (which tighten screening) over test skipping.
+• Keep full traceability: model version, threshold and flow decision recorded per die.
+• Validate against burn-in and field data over a longer period before release.
+7.4 Monitoring in production
+• Daily dashboards: test time saved, audit-sample escape rate, overkill, drift indicators.
+• Escape investigation loop: every downstream fail of a die that took the reduced flow is
+analyzed and fed back to training.
+• Model governance: version control, approval records and rollback plan for every de-
+ployed model.
+8. Implementation roadmap and KPIs
+Rollout runs in four phases, and each gate must pass on measured data before the next phase
+starts.
+Reduced flows go live only after zero escapes in shadow mode
+Phase 1
+Data foundation
+Full-flow datalogs
+Die ID linkage
+Outcome labels
+Phase 2
+Offline levers
+Vector reduction
+Flow ordering
+Outlier screens
+Phase 3
+Pilot and shadow
+Settle prediction
+Adaptive scoring
+Full flow still runs
+Phase 4
+Production
+Reduced flow live
+Audit sample kept
+Drift fallback
+Gate 1
+Data complete, linked
+Gate 2
+No coverage loss
+Gate 3
+Zero shadow escapes
+Figure 2: Implementation roadmap: 4 phases, 3 gates (not to scale)
+Phase durations depend on lot volume and how quickly downstream outcome data accumu-
+lates; plan them once Phase 1 shows how fast labeled data arrives.
+8.1 Gate criteria
+Gate
+Pass criteria
+Gate 1
+Full IDDQ datalogs for enough lots; die ID linked to upstream and downstream
+data; data quality checks pass
+Gate 2
+Reduced vector set and new screens show no loss of detected fails on held-out
+lots; overkill not increased
+9
+
+--- PAGE 10 ---
+AI-Optimized IDDQ Test Time Reduction
+Gate
+Pass criteria
+Gate 3
+Shadow mode over agreed lot count shows zero additional escapes; settling
+predictions within measurement repeatability; customer approval where
+required
+8.2 KPIs
+KPI
+Measure
+Reported
+IDDQ test time per die
+Mean and 95th percentile, seconds
+Per lot
+Total test time per die
+Seconds, all insertions
+Per lot
+Escape rate
+DPPM from audit sample and downstream test
+Weekly
+Overkill
+Good die failed by new screens
+Weekly
+Reduced-flow share
+Share of die taking the reduced flow
+Per lot
+Fallback rate
+Share of die or lots reverted to full flow
+Per lot
+Drift alerts
+Count and lots affected
+Daily
+Cost saved
+Tester seconds saved times cost per second
+Monthly
+9. Glossary and further reading
+9.1 Glossary
+Term
+Meaning
+IDDQ
+Quiescent supply current of a CMOS circuit when inputs are static
+Delta-IDDQ
+Difference in IDDQ between vectors, used to remove background
+leakage
+NNR
+Nearest-neighbor residual: die IDDQ minus a neighbor-based estimate
+DPPM
+Defective parts per million shipped
+Escape
+A defective die that passes test
+Overkill
+A good die that fails test
+ATE
+Automatic test equipment
+PMU
+Parametric measurement unit used to measure supply current
+BICS
+Built-in current sensor, an on-chip IDDQ monitor
+ECID
+Electronic chip ID, a unique die identifier
+Adaptive test
+Changing a die’s test flow in real time based on its own or neighbors’
+data
+PSI
+Population stability index, a drift metric
+Shadow mode
+Running a model alongside the full flow without acting on its decisions
+9.2 Further reading
+These are well-known works in the field, listed from memory; please verify titles and details
+before citing.
+• R. Rajsuman, “Iddq testing for CMOS VLSI,” Proceedings of the IEEE, 2000.
+• S. Sabade and D. M. H. Walker, “IDDX-based test methods: A survey,” ACM Transactions
+on Design Automation of Electronic Systems, 2004.
+• W. R. Daasch, K. Cota, J. McNames, R. Madge, “Neighbor selection for variance reduction
+in IDDQ and other parametric data,” International Test Conference, 2001.
+10
+
+--- PAGE 11 ---
+AI-Optimized IDDQ Test Time Reduction
+• C. Thibeault, “On the comparison of ΔIDDQ and IDDQ testing,” VLSI Test Symposium,
+1999.
+• Literature on virtual probe and compressed-sensing wafer-map prediction, and on adap-
+tive test, from ITC and VTS proceedings.
+11
